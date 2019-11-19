@@ -1,0 +1,15 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`Main.js unit tests should render without errors 1`] = `
+<div
+  className="main-div"
+>
+  <ConnectionPage
+    connected={null}
+    defaultURI="localhost:9092"
+    isFetching={false}
+    updateURI={[Function]}
+    validConnectionChecker={[Function]}
+  />
+</div>
+`;

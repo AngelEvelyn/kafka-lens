@@ -1,53 +1,72 @@
 {
   "name": "kafka-lens",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "A tool for visualizing a Kafka cluster's brokers, topics, partitions, and message flow.",
-  "main": "main/main.js",
-  "babel": {
-    "presets": [
-      "@babel/preset-env",
-      "@babel/preset-react"
-    ]
-  },
-  "jest": {
-    "verbose": true,
-    "snapshotSerializers": [
-      "enzyme-to-json/serializer"
-    ],
-    "setupFiles": [
-      "./client/src/setupTests.js"
-    ],
-    "moduleNameMapper": {
-      "\\.(css|less|scss)$": "<rootDir>/client/src/app/__mocks__/styleMock.js",
-      "\\.(jpg|jpeg|png|gif|eot|otf|webp|svg|ttf|woff|woff2|mp4|webm|wav|mp3|m4a|aac|oga)$": "<rootDir>/client/src/app/__mocks__/assetsTransformer.js",
-      "electron": "<rootDir>/client/src/app/__mocks__/electron.js"
-    },
-    "moduleDirectories": [
-      "node_modules"
-    ],
-    "modulePaths": [
-      "<rootDir>"
-    ]
-  },
+  "main": "dist/main.prod.js",
   "scripts": {
-    "dev": "electron . --inspect=5858",
-    "start": "electron .",
-    "pack": "electron-builder --dir",
-    "dist": "electron-builder",
-    "postinstall": "electron-builder install-app-deps",
-    "start:dev": "webpack-dev-server --open",
-    "webpack": "webpack",
-    "test": "jest",
-    "test:frontend": "jest client",
-    "test:backend": "jest main",
-    "coverage:backend": "jest --collectCoverageFrom=main/kafka/**.js --coverage main",
-    "package": "",
-    "build": "electron-packager . Kafka-Lens",
-    "build-win": "electron-packager . kafka-lens --platform win32 --arch x64 --out dist/",
-    "setup-win": "electron-installer-windows --src dist/kafka-lens-win32-x64/ --dest dist/installers/",
-    "package-mac": "electron-packager . --overwrite --platform=darwin --arch=x64 --icon=assets/icons/mac/icon.icns --prune=true --out=Launch-application",
-    "package-win": "electron-packager . Kafka-Lens --overwrite --asar=true --platform=win32 --arch=ia32 --icon=assets/icons/win/icon.ico --prune=true --out=Launch-application --version-string.CompanyName=CE --version-string.FileDescription=CE --version-string.ProductName=\"Kafka Lens\"",
-    "package-linux": "electron-packager . Kafka-Lens --overwrite --asar=true --platform=linux --arch=x64 --icon=assets/icons/png/icon.png --prune=true --out=Launch-application"
+    "build": "concurrently \"yarn build-main\" \"yarn build-renderer\"",
+    "build-dll": "cross-env NODE_ENV=development webpack -r @babel/register --config ./configs/webpack.config.renderer.dev.dll.js --colors",
+    "build-main": "cross-env NODE_ENV=production webpack -r @babel/register --config ./configs/webpack.config.main.prod.js --colors",
+    "build-renderer": "cross-env NODE_ENV=production webpack -r @babel/register --config ./configs/webpack.config.renderer.prod.js --colors",
+    "coverage:main": "jest --collectCoverageFrom=main/**/*.{js,jsx} --coverage main",
+    "coverage:renderer": "jest --collectCoverageFrom=client/src/app/**/*.{js,jsx} --coverage client",
+    "dev": "cross-env START_HOT=1 DEBUG=true yarn start:renderer:dev",
+    "dev:nolog": "cross-env START_HOT=1 yarn start:renderer:dev",
+    "lint": "eslint --ignore-path .gitignore --cache '**/*.{js,jsx}'",
+    "lint:fix": "yarn lint --fix",
+    "lint:css": "stylelint --ignore-path .gitignore '**/*.*(css|scss)' --syntax scss",
+    "lint:css:fix": "yarn lint:css --fix",
+    "package": "cross-env NODE_ENV=production yarn build && cross-env NODE_ENV=production electron-builder build --publish never",
+    "package-all": "yarn build && electron-builder build -mwl",
+    "package-ci": "yarn postinstall && yarn build && electron-builder --publish always",
+    "package-linux": "yarn build && electron-builder build --linux",
+    "package-win": "yarn build && electron-builder build --win --x64",
+    "postinstall": "electron-builder install-app-deps package.json",
+    "prestart": "yarn build",
+    "start": "cross-env NODE_ENV=production electron ./dist/main.prod.js",
+    "start:main:dev": "cross-env HOT=1 NODE_ENV=development electron -r @babel/register ./main/main.dev.js",
+    "start:renderer:dev": "cross-env NODE_ENV=development webpack-dev-server -r @babel/register --no-inline --config configs/webpack.config.renderer.dev.js",
+    "test": "concurrently \"yarn test:renderer\" \"yarn test:main\"",
+    "test:renderer": "jest client",
+    "test:main": "jest main"
+  },
+  "build": {
+    "appId": "org.nahuelarjonadev.kafkalens",
+    "productName": "Kafka Lens",
+    "files": [
+      "dist/",
+      "client/index.html",
+      "package.json"
+    ],
+    "dmg": {
+      "icon": "icon.png"
+    },
+    "win": {
+      "icon": "icon.ico",
+      "target": [
+        "nsis",
+        "msi"
+      ]
+    },
+    "linux": {
+      "target": [
+        "deb",
+        "rpm",
+        "snap",
+        "AppImage"
+      ],
+      "category": "Development"
+    },
+    "directories": {
+      "buildResources": "resources",
+      "output": "release"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "oslabs-beta",
+      "repo": "kafka-lens",
+      "private": false
+    }
   },
   "build": {
     "appId": "kafka lens",
@@ -55,47 +74,87 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/teampandawhale/kafka-lens.git"
+    "url": "git+https://github.com/oslabs-beta/kafka-lens.git"
   },
   "keywords": [
-    "kafka"
+    "kafka",
+    "electron",
+    "react",
+    "webpack",
+    "kafka-node"
   ],
-  "author": "TEAM PANDA WHALE",
+  "author": {
+    "name": "Kafka Lens Team",
+    "email": "kafkalensteam@gmail.com",
+    "url": "https://kafkalens.io"
+  },
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/teampandawhale/kafka-lens/issues"
+    "url": "https://github.com/oslabs-beta/kafka-lens/issues"
   },
-  "homepage": "https://github.com/teampandawhale/kafka-lens#readme",
+  "homepage": "https://github.com/oslabs-beta/kafka-lens#readme",
   "dependencies": {
     "chart.js": "^2.8.0",
-    "jest-css-modules-transform": "^2.1.1",
     "kafka-node": "^4.0.1",
     "node-sass": "^4.11.0",
     "node-zookeeper-client": "^1.0.0",
+    "prop-types": "^15.7.2",
     "react": "^16.8.1",
     "react-chartjs-2": "^2.7.6",
     "react-dom": "^16.8.1",
+    "react-hot-loader": "^4.12.12",
     "react-router-dom": "^5.0.1",
-    "sass-loader": "^7.1.0"
+    "sass-loader": "^7.1.0",
+    "source-map-support": "^0.5.13"
   },
   "devDependencies": {
     "@babel/core": "^7.2.2",
     "@babel/preset-env": "^7.3.1",
     "@babel/preset-react": "^7.0.0",
+    "@babel/register": "^7.5.5",
+    "@hot-loader/react-dom": "^16.9.0",
+    "babel-eslint": "^10.0.2",
     "babel-jest": "^24.1.0",
     "babel-loader": "^8.0.5",
+    "chalk": "^2.4.2",
+    "concurrently": "^4.1.2",
+    "cross-env": "^5.2.0",
     "css-loader": "^2.1.0",
-    "electron": "^4.0.4",
+    "electron": "^4.2.9",
     "electron-builder": "^21.1.5",
     "enzyme": "^3.9.0",
     "enzyme-adapter-react-16": "^1.9.1",
     "enzyme-to-json": "^3.3.5",
+    "eslint": "^6.1.0",
+    "eslint-config-airbnb": "^18.0.1",
+    "eslint-config-prettier": "^6.0.0",
+    "eslint-import-resolver-webpack": "^0.11.1",
+    "eslint-loader": "^2.2.1",
+    "eslint-plugin-import": "^2.18.2",
+    "eslint-plugin-jsx-a11y": "^6.2.3",
+    "eslint-plugin-prettier": "^3.1.0",
+    "eslint-plugin-react": "^7.14.3",
+    "eslint-plugin-react-hooks": "^1.7.0",
     "html-webpack-plugin": "^3.2.0",
+    "husky": "^3.0.5",
     "jest": "^24.1.0",
+    "jest-css-modules-transform": "^2.1.1",
+    "lint-staged": "^9.2.5",
+    "mini-css-extract-plugin": "^0.8.0",
+    "optimize-css-assets-webpack-plugin": "^5.0.3",
+    "prettier": "^1.18.2",
     "style-loader": "^0.23.1",
+    "stylelint": "^10.1.0",
+    "stylelint-a11y": "^1.2.1",
+    "stylelint-config-prettier": "^5.2.0",
+    "stylelint-config-standard": "^18.3.0",
+    "terser-webpack-plugin": "^1.4.1",
     "url-loader": "^1.1.2",
     "webpack": "^4.29.3",
+    "webpack-bundle-analyzer": "^3.4.1",
     "webpack-cli": "^3.2.3",
-    "webpack-dev-server": "^3.1.14"
+    "webpack-dev-server": "^3.1.14",
+    "webpack-merge": "^4.2.2",
+    "yarn": "^1.17.3"
   }
 }

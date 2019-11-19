@@ -1,20 +1,51 @@
+import PropTypes from 'prop-types';
 import React from 'react';
+import nullableProp from '../../utils/nullableProp';
+import LineChart from './LineChart';
+import BrokerTopicsSideView from './BrokerTopicsSideView';
 import '../css/Sidebar.scss';
-import LineChart from './LineChart.jsx';
-import BrokerTopicsSideView from './BrokerTopicsSideView.jsx';
+import logger from '../../utils/logger';
 
 const SideBar = ({ isSideBarOpen, brokerId, brokerTopics, closeSideBar, brokerGraphData }) => {
-  const sideBarRigth = isSideBarOpen ? '0' : '-30vw';
+  const sideBarRight = isSideBarOpen ? '0' : '-30vw';
+
+  logger.log('brokerGraphData:', brokerGraphData);
 
   return (
-    <div className="sidebar" style={{ right: sideBarRigth }}>
-      <div className="closebtn" key={brokerId} onClick={closeSideBar} style={{ color: '#51b3b5' }}>
+    <div className="sidebar" style={{ right: sideBarRight }}>
+      <div
+        className="closebtn"
+        key={brokerId}
+        role="button"
+        tabIndex="0"
+        onKeyPress={closeSideBar}
+        onClick={closeSideBar}
+      >
         Close
       </div>
-      {brokerGraphData && <LineChart {...brokerGraphData} brokerId={brokerId}/>}
-      <BrokerTopicsSideView topics={brokerTopics} brokerID={brokerId}/>
+      {brokerGraphData && (
+        <LineChart
+          timeStamps={brokerGraphData.timeStamps}
+          topicsData={brokerGraphData.topicsData}
+          brokerId={brokerId}
+        />
+      )}
+      <BrokerTopicsSideView topics={brokerTopics} brokerID={brokerId} />
     </div>
   );
 };
 
 export default SideBar;
+
+SideBar.propTypes = {
+  brokerGraphData: nullableProp(
+    PropTypes.shape({
+      timeStamps: PropTypes.arrayOf(PropTypes.number),
+      topicsData: PropTypes.object,
+    }),
+  ).isRequired,
+  brokerId: nullableProp(PropTypes.number).isRequired,
+  brokerTopics: PropTypes.arrayOf(PropTypes.object).isRequired,
+  closeSideBar: PropTypes.func.isRequired,
+  isSideBarOpen: PropTypes.bool.isRequired,
+};

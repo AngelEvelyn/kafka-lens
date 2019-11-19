@@ -63,14 +63,18 @@ brokerApi.calcAndCacheMsgsPerSecond = (kafkaHostURI, topicName, partitionId, lea
  *   }
  * ]
  *
- * @returns {{
- *         brokerId: Number,
- *         brokerURI: Number,
- *         topics: [],
- *         isAlive: Boolean,
- *       }} object of this type of objects
+ * will return an object of this type of objects:
+ *
+ * {{
+ *   brokerId: Number,
+ *   brokerURI: Number,
+ *   topics: [],
+ *   isAlive: Boolean,
+ * }}
+ *
+ * @returns (Promise)
  */
-brokerApi.getBrokerData = (kafkaHostURI) => {
+brokerApi.getBrokerData = kafkaHostURI => {
   logger.log('attempting connection to uri', kafkaHostURI);
   return new Promise((resolve, reject) => {
     // Declares a new instance of client that will be used to make a connection
@@ -80,15 +84,15 @@ brokerApi.getBrokerData = (kafkaHostURI) => {
     const brokerResult = {};
 
     // Fetch all topics from the Kafka broker
-    admin.listTopics((err, data) => {
-      if (err) {
-        logger.error(err);
+    admin.listTopics((error, data) => {
+      if (error) {
+        logger.error(error);
         client.close();
-        return reject({error: err});
+        return reject(error);
       }
 
       // Reassign topics with only the object containing the topic data
-      //logger.log('brokerMetadata IN BROKER API:', data[0]);
+      // logger.log('brokerMetadata IN BROKER API:', data[0]);
       const brokerMetadata = data[0];
       const topicsMetadata = data[1].metadata;
 
@@ -97,18 +101,17 @@ brokerApi.getBrokerData = (kafkaHostURI) => {
       Object.entries(brokerMetadata).forEach(([broker, brokerData]) => {
         brokerResult[broker] = {
           brokerId: brokerData.nodeId,
-          brokerURI: brokerData.host + ':' + brokerData.port,
+          brokerURI: `${brokerData.host}:${brokerData.port}`,
           topics: {},
-          isAlive: true
+          isAlive: true,
         };
       });
 
-      Object.entries(topicsMetadata).forEach(([topicName, topic]) => {
+      return Object.entries(topicsMetadata).forEach(([topicName, topic]) => {
         const calcAndCacheMsgsPerSecondPromises = [];
 
         if (topicName === '__consumer_offsets') return;
         // for each topic, find associated broker and add topic name to topic array in brokerResults
-        
         const associatedBrokers = new Set();
         Object.values(topic).forEach(partition => {
           logger.log('partition:', partition);
@@ -124,40 +127,40 @@ brokerApi.getBrokerData = (kafkaHostURI) => {
               kafkaHostURI,
               topicName,
               partition.partition,
-              partition.leader
-            )
+              partition.leader,
+            ),
           );
         });
 
         logger.log(`associated Brokers for topic ${topicName}:`, associatedBrokers);
 
         associatedBrokers.forEach(id => {
-          if (!brokerResult.hasOwnProperty(id)) {
+          if (!Object.hasOwnProperty.call(brokerResult, id)) {
             brokerResult[id] = {
               brokerId: id,
               brokerURI: 'Unknown',
               topics: {},
-              isAlive: false
+              isAlive: false,
             };
           }
           const brokerInfo = brokerResult[id];
-          brokerInfo.topics[topicName] = { topicName: topicName, newMessagesPerSecond: null, isLeader: false };
+          brokerInfo.topics[topicName] = { topicName, newMessagesPerSecond: null, isLeader: false };
         });
 
         logger.log('brokerResult before msgsPerSecond:', brokerResult);
         Promise.all(calcAndCacheMsgsPerSecondPromises)
           .then(() => {
             logger.log('topicsCache:', topicsCache);
-            Object.entries(topicsCache).forEach(([topicName, cachedPartitions]) => {
-              logger.log('topicName:', topicName);
+            Object.entries(topicsCache).forEach(([cachedTopicName, cachedPartitions]) => {
+              logger.log('cachedTopicName:', cachedTopicName);
               Object.values(cachedPartitions).forEach(cachedPartition => {
                 logger.log('cachedPartition:', cachedPartition);
                 const brokerInfo = brokerResult[cachedPartition.leader];
                 logger.log('brokerInfo:', brokerInfo);
-                const topic = brokerInfo.topics[topicName];
-                topic.isLeader = true;
-                if (topic.newMessagesPerSecond === null) topic.newMessagesPerSecond = 0;
-                topic.newMessagesPerSecond += cachedPartition.newMessagesPerSecond;
+                const cachedTopic = brokerInfo.topics[cachedTopicName];
+                cachedTopic.isLeader = true;
+                if (cachedTopic.newMessagesPerSecond === null) cachedTopic.newMessagesPerSecond = 0;
+                cachedTopic.newMessagesPerSecond += cachedPartition.newMessagesPerSecond;
               });
             });
 
@@ -168,7 +171,7 @@ brokerApi.getBrokerData = (kafkaHostURI) => {
           .catch(err => {
             logger.error('ERROR GETTING msgsPerSecond:', err);
             client.close();
-            return reject({ error: err });
+            return reject(err);
           });
       });
     });

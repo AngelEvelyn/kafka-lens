@@ -1,7 +1,8 @@
-import React, { Component } from 'react';
-import { Bar, Line } from 'react-chartjs-2';
-import logger from '../../utils/logger'
-import '../css/Sidebar.scss'
+import PropTypes from 'prop-types';
+import React from 'react';
+import { Line } from 'react-chartjs-2';
+import logger from '../../utils/logger';
+import '../css/Sidebar.scss';
 
 function getRandomColor() {
   const red = Math.floor(Math.random() * 255);
@@ -33,27 +34,36 @@ function createDataset(topicName, msgsPerSecondArray) {
     pointHoverBorderWidth: 2,
     pointRadius: 1,
     pointHitRadius: 10,
-    data: msgsPerSecondArray
+    data: msgsPerSecondArray,
   };
 }
 
 const LineChart = ({ timeStamps, topicsData, brokerId }) => {
-  const datasets = Object.entries(topicsData).map(([topicName, msgsPerSecondArray]) => {
-    return createDataset(topicName, msgsPerSecondArray);
-  });
+  const datasets = Object.entries(topicsData).map(([topicName, msgsPerSecondArray]) =>
+    createDataset(topicName, msgsPerSecondArray),
+  );
 
   logger.log('datasets:', datasets);
 
   const data = {
     labels: timeStamps,
-    datasets: datasets
+    datasets,
   };
   return (
     <div>
-      <h1 className='brokerId'> Broker ID #{brokerId} History </h1>
+      <h1 className="brokerId"> Broker ID #{brokerId} History </h1>
       <Line data={data} />
     </div>
   );
 };
 
 export default LineChart;
+
+LineChart.propTypes = {
+  brokerId: PropTypes.number.isRequired,
+  timeStamps: PropTypes.arrayOf(PropTypes.number).isRequired,
+  topicsData: PropTypes.shape({
+    topicName: PropTypes.string,
+    msgsPerSecondArray: PropTypes.arrayOf(PropTypes.number),
+  }).isRequired,
+};
